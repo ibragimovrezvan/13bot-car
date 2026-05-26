@@ -152,10 +152,18 @@ def get_month_stats(user_id, month=None, year=None):
     result = cursor.fetchone()
     conn.close()
     
+    total_check = result[0] if result[0] else 0
+    total_salary = result[1] if result[1] else 0
+    count = result[2] if result[2] else 0
+    
+    # Расчет среднего чека
+    avg_check = total_check / count if count > 0 else 0
+    
     return {
-        'total_check': result[0] if result[0] else 0,
-        'total_salary': result[1] if result[1] else 0,
-        'count': result[2] if result[2] else 0
+        'total_check': total_check,
+        'total_salary': total_salary,
+        'count': count,
+        'avg_check': avg_check
     }
 
 def clear_today_records(user_id):
@@ -178,3 +186,4 @@ def clear_today_records(user_id):
 
 # Инициализация базы данных при запуске
 init_database()
+Update desing
