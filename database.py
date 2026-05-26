@@ -186,4 +186,3 @@ def clear_today_records(user_id):
 
 # Инициализация базы данных при запуске
 init_database()
-Update desing
