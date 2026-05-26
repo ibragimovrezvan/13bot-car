@@ -184,5 +184,45 @@ def clear_today_records(user_id):
     
     return deleted_count
 
+def clear_period_records(user_id, start_day, end_day, month=None, year=None):
+    """Удаление записей за период"""
+    if month is None:
+        month = datetime.now().month
+    if year is None:
+        year = datetime.now().year
+    
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        DELETE FROM cars 
+        WHERE user_id = ? 
+        AND strftime('%Y', date) = ?
+        AND strftime('%m', date) = ?
+        AND CAST(strftime('%d', date) AS INTEGER) BETWEEN ? AND ?
+    ''', (user_id, str(year), str(month).zfill(2), start_day, end_day))
+    
+    deleted_count = cursor.rowcount
+    conn.commit()
+    conn.close()
+    
+    return deleted_count
+
+def clear_all_records(user_id):
+    """Удаление всех записей пользователя"""
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        DELETE FROM cars 
+        WHERE user_id = ?
+    ''', (user_id,))
+    
+    deleted_count = cursor.rowcount
+    conn.commit()
+    conn.close()
+    
+    return deleted_count
+
 # Инициализация базы данных при запуске
 init_database()
