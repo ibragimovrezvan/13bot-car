@@ -26,31 +26,29 @@ user_data = {}
 async def show_main_menu(update):
     # Inline кнопки под сообщением (премиальный минимализм)
     keyboard = [
+        [InlineKeyboardButton("▪ Сегодня", callback_data='today_salary')],
         [
             InlineKeyboardButton("▪ ЗП 1-15", callback_data='salary_1_15'),
             InlineKeyboardButton("▪ ЗП 16-30", callback_data='salary_16_30')
         ],
         [
-            InlineKeyboardButton("▪ Сегодня", callback_data='today_salary'),
-            InlineKeyboardButton("▪ Очистить ◻️◻️", callback_data='clear_menu')
-        ],
-        [
             InlineKeyboardButton("▪ Отчет 1-15", callback_data='export_1_15'),
             InlineKeyboardButton("▪ Отчет 16-30", callback_data='export_16_30')
-        ]
+        ],
+        [InlineKeyboardButton("▫️Очистить▫️", callback_data='clear_menu')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     if update.message:
         await update.message.reply_text(
-            "<b>Car Wash</b>\n\n"
+            "<b>13</b>\n\n"
             "Выберите действие",
             parse_mode='HTML',
             reply_markup=reply_markup
         )
     else:
         await update.callback_query.message.reply_text(
-            "<b>Car Wash</b>\n\n"
+            "<b>13</b>\n\n"
             "Выберите действие",
             parse_mode='HTML',
             reply_markup=reply_markup
@@ -61,7 +59,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     
     await update.message.reply_text(
-        f"<b>Car Wash</b>\n\n"
+        f"<b>13</b>\n\n"
         f"Привет, {user.first_name}\n\n"
         "Инструкция:\n"
         "1. Отправьте фото машины\n"
