@@ -4,7 +4,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFi
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes, ConversationHandler
 from datetime import datetime
 from openpyxl import Workbook
-from database import add_car_record, get_today_salary, get_period_salary, get_all_cars_for_export, get_month_stats, clear_today_records
+from database import add_car_record, get_today_salary, get_period_salary, get_all_cars_for_export, clear_today_records, clear_period_records, clear_all_records
 import tempfile
 
 # Загрузка переменных окружения
@@ -27,18 +27,17 @@ async def show_main_menu(update):
     # Inline кнопки под сообщением (премиальный минимализм)
     keyboard = [
         [
+            InlineKeyboardButton("▪ ЗП 1-15", callback_data='salary_1_15'),
+            InlineKeyboardButton("▪ ЗП 16-30", callback_data='salary_16_30')
+        ],
+        [
             InlineKeyboardButton("▪ Сегодня", callback_data='today_salary'),
-            InlineKeyboardButton("▪ Месяц", callback_data='month_stats')
+            InlineKeyboardButton("▪ Очистить ◻️◻️", callback_data='clear_menu')
         ],
         [
-            InlineKeyboardButton("▪ 1-15", callback_data='salary_1_15'),
-            InlineKeyboardButton("▪ 16-30", callback_data='salary_16_30')
-        ],
-        [
-            InlineKeyboardButton("▪ Экспорт 1-15", callback_data='export_1_15'),
-            InlineKeyboardButton("▪ Экспорт 16-30", callback_data='export_16_30')
-        ],
-        [InlineKeyboardButton("▪ Очистить", callback_data='clear_today')]
+            InlineKeyboardButton("▪ Отчет 1-15", callback_data='export_1_15'),
+            InlineKeyboardButton("▪ Отчет 16-30", callback_data='export_16_30')
+        ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -116,17 +115,25 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     elif query.data == 'export_16_30':
         await export_data(query, user_id, 16, 30)
     
-    elif query.data == 'month_stats':
-        stats = get_month_stats(user_id)
+    elif query.data == 'clear_menu':
+        keyboard = [
+            [
+                InlineKeyboardButton("▪ Очистить сегодня", callback_data='clear_today'),
+                InlineKeyboardButton("▪ Очистить 1-15", callback_data='clear_1_15')
+            ],
+            [
+                InlineKeyboardButton("▪ Очистить 16-30", callback_data='clear_16_30'),
+                InlineKeyboardButton("▪ Очистить все", callback_data='clear_all')
+            ],
+            [InlineKeyboardButton("▪ Назад", callback_data='back')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
         await query.message.reply_text(
-            "<b>Статистика за месяц</b>\n\n"
-            f"Чеки: <code>{stats['total_check']:.2f} ₽</code>\n"
-            f"Доля: <code>{stats['total_salary']:.2f} ₽</code>\n"
-            f"Машин: <code>{stats['count']}</code>\n"
-            f"Средний чек: <code>{stats['avg_check']:.2f} ₽</code>",
-            parse_mode='HTML'
+            "<b>Очистка</b>\n\n"
+            "Выберите период",
+            parse_mode='HTML',
+            reply_markup=reply_markup
         )
-        await show_main_menu(update)
     
     elif query.data == 'clear_today':
         deleted = clear_today_records(user_id)
@@ -135,7 +142,37 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             f"Удалено: <code>{deleted}</code>",
             parse_mode='HTML'
         )
-        await show_main_menu(update)
+        await show_main_menu(query)
+    
+    elif query.data == 'clear_1_15':
+        deleted = clear_period_records(user_id, 1, 15)
+        await query.message.reply_text(
+            "<b>Очистка</b>\n\n"
+            f"Удалено: <code>{deleted}</code>",
+            parse_mode='HTML'
+        )
+        await show_main_menu(query)
+    
+    elif query.data == 'clear_16_30':
+        deleted = clear_period_records(user_id, 16, 30)
+        await query.message.reply_text(
+            "<b>Очистка</b>\n\n"
+            f"Удалено: <code>{deleted}</code>",
+            parse_mode='HTML'
+        )
+        await show_main_menu(query)
+    
+    elif query.data == 'clear_all':
+        deleted = clear_all_records(user_id)
+        await query.message.reply_text(
+            "<b>Очистка</b>\n\n"
+            f"Удалено: <code>{deleted}</code>",
+            parse_mode='HTML'
+        )
+        await show_main_menu(query)
+    
+    elif query.data == 'back':
+        await show_main_menu(query)
 
 # Обработчик фото
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -228,6 +265,10 @@ async def export_data(query, user_id, start_day, end_day):
         )
         return
     
+    # Считаем сумму чека и доли
+    total_check = sum(car['check_amount'] for car in cars_data)
+    total_salary = sum(car['salary_25_percent'] for car in cars_data)
+    
     # Создаем Excel файл
     wb = Workbook()
     ws = wb.active
@@ -248,12 +289,12 @@ async def export_data(query, user_id, start_day, end_day):
     
     wb.save(temp_filename)
     
-    # Отправляем Excel файл
+    # Отправляем Excel файл с суммарными данными
     try:
         with open(temp_filename, 'rb') as file:
             await query.message.reply_document(
                 document=file,
-                caption=f"Таблица {start_day}-{end_day}"
+                caption=f"Таблица {start_day}-{end_day}\n\nСумма чека: {total_check:.2f} ₽\nДоля 25%: {total_salary:.2f} ₽"
             )
     except Exception as e:
         await query.message.reply_text(
@@ -267,7 +308,8 @@ async def export_data(query, user_id, start_day, end_day):
     
     # Отправляем фото
     await query.message.reply_text(
-        f"<b>Фото за период {start_day}-{end_day}</b>",
+        f"<b>Фото за период {start_day}-{end_day}</b>\n\n"
+        f"Сумма чека: {total_check:.2f} ₽\nДоля 25%: {total_salary:.2f} ₽",
         parse_mode='HTML'
     )
     
