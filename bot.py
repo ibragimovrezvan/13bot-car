@@ -24,35 +24,35 @@ user_data = {}
 
 # Функция для показа главного меню
 async def show_main_menu(update):
-    # Inline кнопки под сообщением (минималистичный дизайн)
+    # Inline кнопки под сообщением (премиальный минимализм)
     keyboard = [
         [
-            InlineKeyboardButton("  Сегодня", callback_data='today_salary'),
-            InlineKeyboardButton("  Месяц", callback_data='month_stats')
+            InlineKeyboardButton("▪ Сегодня", callback_data='today_salary'),
+            InlineKeyboardButton("▪ Месяц", callback_data='month_stats')
         ],
         [
-            InlineKeyboardButton("💰 1-15", callback_data='salary_1_15'),
-            InlineKeyboardButton("  16-30", callback_data='salary_16_30')
+            InlineKeyboardButton("▪ 1-15", callback_data='salary_1_15'),
+            InlineKeyboardButton("▪ 16-30", callback_data='salary_16_30')
         ],
         [
-            InlineKeyboardButton("  Экспорт 1-15", callback_data='export_1_15'),
-            InlineKeyboardButton("  Экспорт 16-30", callback_data='export_16_30')
+            InlineKeyboardButton("▪ Экспорт 1-15", callback_data='export_1_15'),
+            InlineKeyboardButton("▪ Экспорт 16-30", callback_data='export_16_30')
         ],
-        [InlineKeyboardButton("🗑️ Очистить", callback_data='clear_today')]
+        [InlineKeyboardButton("▪ Очистить", callback_data='clear_today')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     if update.message:
         await update.message.reply_text(
-            "<b>🚗 Car Wash Bot</b>\n\n"
-            "<i>Выбери действие:</i>",
+            "<b>Car Wash</b>\n\n"
+            "Выберите действие",
             parse_mode='HTML',
             reply_markup=reply_markup
         )
     else:
         await update.callback_query.message.reply_text(
-            "<b>🚗 Car Wash Bot</b>\n\n"
-            "<i>Выбери действие:</i>",
+            "<b>Car Wash</b>\n\n"
+            "Выберите действие",
             parse_mode='HTML',
             reply_markup=reply_markup
         )
@@ -62,13 +62,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     
     await update.message.reply_text(
-        f"<b>👋 Привет, {user.first_name}!</b>\n\n"
-        "<i>🚗 Car Wash Bot</i>\n\n"
-        "<b>Как пользоваться:</b>\n"
-        "• Отправь фото машины\n"
-        "• Напиши сумму чека в описании\n"
-        "• Я посчитаю твою долю (25%)\n\n"
-        "<code>Пример: отправь фото и напиши "5000"</code>",
+        f"<b>Car Wash</b>\n\n"
+        f"Привет, {user.first_name}\n\n"
+        "Инструкция:\n"
+        "1. Отправьте фото машины\n"
+        "2. Напишите сумму чека в описании\n"
+        "3. Доля составит 25%\n\n"
+        "Пример: фото с текстом \"5000\"",
         parse_mode='HTML'
     )
     
@@ -84,7 +84,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if query.data == 'today_salary':
         salary = get_today_salary(user_id)
         await query.message.reply_text(
-            "<b>💵 Сегодня</b>\n\n"
+            "<b>Сегодня</b>\n\n"
             f"<code>{salary:.2f} ₽</code>",
             parse_mode='HTML'
         )
@@ -93,7 +93,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     elif query.data == 'salary_1_15':
         salary, cars = get_period_salary(user_id, 1, 15)
         await query.message.reply_text(
-            "<b>💰 Период 1-15</b>\n\n"
+            "<b>Период 1-15</b>\n\n"
             f"Доля: <code>{salary:.2f} ₽</code>\n"
             f"Машин: <code>{len(cars)}</code>",
             parse_mode='HTML'
@@ -103,7 +103,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     elif query.data == 'salary_16_30':
         salary, cars = get_period_salary(user_id, 16, 30)
         await query.message.reply_text(
-            "<b>💰 Период 16-30</b>\n\n"
+            "<b>Период 16-30</b>\n\n"
             f"Доля: <code>{salary:.2f} ₽</code>\n"
             f"Машин: <code>{len(cars)}</code>",
             parse_mode='HTML'
@@ -119,11 +119,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     elif query.data == 'month_stats':
         stats = get_month_stats(user_id)
         await query.message.reply_text(
-            "<b>📊 Статистика за месяц</b>\n\n"
-            f"💰 Чеки: <code>{stats['total_check']:.2f} ₽</code>\n"
-            f"💵 Доля: <code>{stats['total_salary']:.2f} ₽</code>\n"
-            f"🚗 Машин: <code>{stats['count']}</code>\n"
-            f"📈 Средний чек: <code>{stats['avg_check']:.2f} ₽</code>",
+            "<b>Статистика за месяц</b>\n\n"
+            f"Чеки: <code>{stats['total_check']:.2f} ₽</code>\n"
+            f"Доля: <code>{stats['total_salary']:.2f} ₽</code>\n"
+            f"Машин: <code>{stats['count']}</code>\n"
+            f"Средний чек: <code>{stats['avg_check']:.2f} ₽</code>",
             parse_mode='HTML'
         )
         await show_main_menu(update)
@@ -131,8 +131,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     elif query.data == 'clear_today':
         deleted = clear_today_records(user_id)
         await query.message.reply_text(
-            "<b>🗑️ Очистка</b>\n\n"
-            f"Удалено записей: <code>{deleted}</code>",
+            "<b>Очистка</b>\n\n"
+            f"Удалено: <code>{deleted}</code>",
             parse_mode='HTML'
         )
         await show_main_menu(update)
@@ -148,8 +148,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             check_amount = float(caption.strip())
             if check_amount <= 0:
                 await update.message.reply_text(
-                    "<b>❌ Ошибка</b>\n\n"
-                    "Сумма должна быть положительной.",
+                    "<b>Ошибка</b>\n\n"
+                    "Сумма должна быть положительной",
                     parse_mode='HTML'
                 )
                 return
@@ -157,9 +157,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             salary = add_car_record(user_id, photo_file_id=photo.file_id, check_amount=check_amount)
             
             await update.message.reply_text(
-                "<b>✅ Запись добавлена</b>\n\n"
-                f"💰 Чек: <code>{check_amount:.2f} ₽</code>\n"
-                f"💵 Доля: <code>{salary:.2f} ₽</code>",
+                "<b>Запись добавлена</b>\n\n"
+                f"Чек: <code>{check_amount:.2f} ₽</code>\n"
+                f"Доля: <code>{salary:.2f} ₽</code>",
                 parse_mode='HTML'
             )
             
@@ -167,15 +167,15 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             
         except ValueError:
             await update.message.reply_text(
-                "<b>❌ Ошибка</b>\n\n"
-                "Напиши число в описании фото.",
+                "<b>Ошибка</b>\n\n"
+                "Напишите число в описании",
                 parse_mode='HTML'
             )
     else:
         user_data[user_id] = {'state': WAITING_FOR_CHECK, 'photo_file_id': photo.file_id}
         await update.message.reply_text(
-            "<b>📸 Фото получено</b>\n\n"
-            "Отправь сумму чека:",
+            "<b>Фото получено</b>\n\n"
+            "Отправьте сумму чека",
             parse_mode='HTML'
         )
 
@@ -189,8 +189,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             check_amount = float(text)
             if check_amount <= 0:
                 await update.message.reply_text(
-                    "<b>❌ Ошибка</b>\n\n"
-                    "Сумма должна быть положительной.",
+                    "<b>Ошибка</b>\n\n"
+                    "Сумма должна быть положительной",
                     parse_mode='HTML'
                 )
                 return
@@ -201,9 +201,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             del user_data[user_id]
             
             await update.message.reply_text(
-                "<b>✅ Запись добавлена</b>\n\n"
-                f"💰 Чек: <code>{check_amount:.2f} ₽</code>\n"
-                f"💵 Доля: <code>{salary:.2f} ₽</code>",
+                "<b>Запись добавлена</b>\n\n"
+                f"Чек: <code>{check_amount:.2f} ₽</code>\n"
+                f"Доля: <code>{salary:.2f} ₽</code>",
                 parse_mode='HTML'
             )
             
@@ -211,8 +211,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             
         except ValueError:
             await update.message.reply_text(
-                "<b>❌ Ошибка</b>\n\n"
-                "Введи число.",
+                "<b>Ошибка</b>\n\n"
+                "Введите число",
                 parse_mode='HTML'
             )
 
@@ -222,8 +222,8 @@ async def export_data(query, user_id, start_day, end_day):
     
     if not cars_data:
         await query.message.reply_text(
-            "<b>❌ Нет данных</b>\n\n"
-            "За этот период нет записей.",
+            "<b>Нет данных</b>\n\n"
+            "За этот период нет записей",
             parse_mode='HTML'
         )
         return
@@ -253,11 +253,11 @@ async def export_data(query, user_id, start_day, end_day):
         with open(temp_filename, 'rb') as file:
             await query.message.reply_document(
                 document=file,
-                caption=f"📋 Таблица {start_day}-{end_day}"
+                caption=f"Таблица {start_day}-{end_day}"
             )
     except Exception as e:
         await query.message.reply_text(
-            f"<b>❌ Ошибка</b>\n\n"
+            f"<b>Ошибка</b>\n\n"
             f"{e}",
             parse_mode='HTML'
         )
@@ -267,7 +267,7 @@ async def export_data(query, user_id, start_day, end_day):
     
     # Отправляем фото
     await query.message.reply_text(
-        f"<b>📸 Фото за период {start_day}-{end_day}</b>",
+        f"<b>Фото за период {start_day}-{end_day}</b>",
         parse_mode='HTML'
     )
     
@@ -276,11 +276,11 @@ async def export_data(query, user_id, start_day, end_day):
             try:
                 await query.message.reply_photo(
                     photo=car['photo_file_id'],
-                    caption=f"💰 {car['check_amount']} ₽ | 💵 {car['salary_25_percent']} ₽ | 📅 {car['date']}"
+                    caption=f"{car['check_amount']} ₽ | {car['salary_25_percent']} ₽ | {car['date']}"
                 )
             except Exception as e:
                 await query.message.reply_text(
-                    f"<b>❌ Ошибка фото</b>\n\n"
+                    f"<b>Ошибка фото</b>\n\n"
                     f"{e}",
                     parse_mode='HTML'
                 )
@@ -295,10 +295,9 @@ def main() -> None:
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     
-    
     print("Бот запущен...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     main()
-Update desing
+Premium desing update
