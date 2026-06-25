@@ -4,7 +4,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFi
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes, ConversationHandler
 from datetime import datetime
 from openpyxl import Workbook
-from database import add_car_record, get_today_salary, get_period_salary, get_all_cars_for_export, clear_today_records, clear_period_records, clear_all_records, delete_last_records, get_split_mode
+from database import add_car_record, get_today_salary, get_yesterday_salary, get_period_salary, get_all_cars_for_export, clear_today_records, clear_period_records, clear_all_records, delete_last_records, get_split_mode
 import tempfile
 import zipfile
 import requests
@@ -30,10 +30,13 @@ async def show_main_menu(update):
     # Inline кнопки под сообщением (премиальный минимализм)
     user_id = update.effective_user.id if update.effective_user else update.callback_query.from_user.id
     is_split = split_mode.get(user_id, 0)
-    split_text = "▪ Раздел: ВКЛ" if is_split else "▪ Раздел: ВЫКЛ"
+    split_indicator = "🟢" if is_split else "🔴"
     
     keyboard = [
-        [InlineKeyboardButton("▪ Сегодня", callback_data='today_salary')],
+        [
+            InlineKeyboardButton("▪ Сегодня", callback_data='today_salary'),
+            InlineKeyboardButton("▪ Вчера", callback_data='yesterday_salary')
+        ],
         [
             InlineKeyboardButton("▪ ЗП 1-15", callback_data='salary_1_15'),
             InlineKeyboardButton("▪ ЗП 16-30", callback_data='salary_16_30')
@@ -43,7 +46,7 @@ async def show_main_menu(update):
             InlineKeyboardButton("▪ Отчет 16-30", callback_data='export_16_30')
         ],
         [
-            InlineKeyboardButton(split_text, callback_data='toggle_split'),
+            InlineKeyboardButton(f"{split_indicator} НА 2-их", callback_data='toggle_split'),
             InlineKeyboardButton("▫️Очистить▫️", callback_data='clear_menu')
         ]
     ]
@@ -97,6 +100,15 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
         await show_main_menu(update)
     
+    elif query.data == 'yesterday_salary':
+        salary = get_yesterday_salary(user_id)
+        await query.message.reply_text(
+            "<b>Вчера</b>\n\n"
+            f"<code>{salary:.2f} ₽</code>",
+            parse_mode='HTML'
+        )
+        await show_main_menu(update)
+    
     elif query.data == 'salary_1_15':
         salary, cars = get_period_salary(user_id, 1, 15)
         await query.message.reply_text(
@@ -127,7 +139,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         split_mode[user_id] = 1 - split_mode.get(user_id, 0)
         status = "ВКЛ" if split_mode[user_id] else "ВЫКЛ"
         await query.message.reply_text(
-            f"<b>Разделение чека</b>\n\n"
+            f"<b>Разделение на 2-их</b>\n\n"
             f"Статус: <code>{status}</code>",
             parse_mode='HTML'
         )
@@ -137,17 +149,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         keyboard = [
             [
                 InlineKeyboardButton("▪ Удалить последнюю", callback_data='delete_last'),
-                InlineKeyboardButton("▪ Удалить все пред.", callback_data='delete_all_previous')
+                InlineKeyboardButton("▪ Очистить сегодня", callback_data='clear_today')
             ],
             [
-                InlineKeyboardButton("▪ Очистить сегодня", callback_data='clear_today'),
-                InlineKeyboardButton("▪ Очистить 1-15", callback_data='clear_1_15')
+                InlineKeyboardButton("▪ Очистить 1-15", callback_data='clear_1_15'),
+                InlineKeyboardButton("▪ Очистить 16-30", callback_data='clear_16_30')
             ],
             [
-                InlineKeyboardButton("▪ Очистить 16-30", callback_data='clear_16_30'),
-                InlineKeyboardButton("▪ Очистить все", callback_data='clear_all')
-            ],
-            [InlineKeyboardButton("▪ Назад", callback_data='back')]
+                InlineKeyboardButton("▪ Очистить все", callback_data='clear_all'),
+                InlineKeyboardButton("▪ Назад", callback_data='back')
+            ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.message.reply_text(
@@ -159,19 +170,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     
     elif query.data == 'delete_last':
         deleted = delete_last_records(user_id, 1)
-        await query.message.reply_text(
-            "<b>Удаление</b>\n\n"
-            f"Удалено: <code>{deleted}</code>",
-            parse_mode='HTML'
-        )
-        await show_main_menu(query)
-    
-    elif query.data == 'delete_all_previous':
-        # Получаем количество всех записей пользователя
-        from database import get_all_cars_for_export
-        all_cars = get_all_cars_for_export(user_id, 1, 31)
-        count = len(all_cars)
-        deleted = delete_last_records(user_id, count)
         await query.message.reply_text(
             "<b>Удаление</b>\n\n"
             f"Удалено: <code>{deleted}</code>",
@@ -345,6 +343,10 @@ async def export_data(query, user_id, start_day, end_day):
     
     try:
         with zipfile.ZipFile(zip_filename, 'w') as zipf:
+            # Сначала добавляем Excel файл
+            zipf.write(temp_filename, "table.xlsx")
+            
+            # Добавляем фото
             for idx, car in enumerate(cars_data):
                 if car['photo_file_id']:
                     try:
@@ -360,11 +362,6 @@ async def export_data(query, user_id, start_day, end_day):
                             zipf.writestr(photo_filename, response.content)
                     except Exception as e:
                         print(f"Ошибка при скачивании фото {idx+1}: {e}")
-        
-        # Добавляем Excel файл в ZIP
-        zipf = zipfile.ZipFile(zip_filename, 'a')
-        zipf.write(temp_filename, "table.xlsx")
-        zipf.close()
         
         # Отправляем ZIP файл
         with open(zip_filename, 'rb') as file:
