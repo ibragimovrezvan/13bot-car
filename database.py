@@ -18,24 +18,28 @@ def init_database():
             check_amount REAL NOT NULL,
             salary_25_percent REAL NOT NULL,
             date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            description TEXT
+            description TEXT,
+            is_split INTEGER DEFAULT 0
         )
     ''')
     
     conn.commit()
     conn.close()
 
-def add_car_record(user_id, photo_file_id=None, photo_path=None, check_amount=0, description=""):
+def add_car_record(user_id, photo_file_id=None, photo_path=None, check_amount=0, description="", is_split=0):
     """Добавление записи о машине"""
+    if is_split:
+        # Если разделение включено, делим чек на 2, затем считаем 25%
+        check_amount = check_amount / 2
     salary_25_percent = check_amount * 0.25
     
     conn = sqlite3.connect(DATABASE_NAME)
     cursor = conn.cursor()
     
     cursor.execute('''
-        INSERT INTO cars (user_id, photo_file_id, photo_path, check_amount, salary_25_percent, description)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (user_id, photo_file_id, photo_path, check_amount, salary_25_percent, description))
+        INSERT INTO cars (user_id, photo_file_id, photo_path, check_amount, salary_25_percent, description, is_split)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (user_id, photo_file_id, photo_path, check_amount, salary_25_percent, description, is_split))
     
     conn.commit()
     conn.close()
@@ -223,6 +227,51 @@ def clear_all_records(user_id):
     conn.close()
     
     return deleted_count
+
+def delete_last_records(user_id, count=1):
+    """Удаление последних записей пользователя"""
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    
+    # Получаем ID последних записей
+    cursor.execute('''
+        SELECT id FROM cars 
+        WHERE user_id = ? 
+        ORDER BY id DESC 
+        LIMIT ?
+    ''', (user_id, count))
+    
+    ids_to_delete = [row[0] for row in cursor.fetchall()]
+    
+    if ids_to_delete:
+        cursor.execute('''
+            DELETE FROM cars 
+            WHERE id IN ({})
+        '''.format(','.join('?' * len(ids_to_delete))), ids_to_delete)
+    
+    deleted_count = cursor.rowcount
+    conn.commit()
+    conn.close()
+    
+    return deleted_count
+
+def get_split_mode(user_id):
+    """Получение режима разделения для пользователя"""
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    
+    # Проверяем последнюю запись на is_split
+    cursor.execute('''
+        SELECT is_split FROM cars 
+        WHERE user_id = ? 
+        ORDER BY id DESC 
+        LIMIT 1
+    ''', (user_id,))
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    return result[0] if result else 0
 
 # Инициализация базы данных при запуске
 init_database()
