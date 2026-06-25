@@ -18,10 +18,16 @@ def init_database():
             check_amount REAL NOT NULL,
             salary_25_percent REAL NOT NULL,
             date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            description TEXT,
-            is_split INTEGER DEFAULT 0
+            description TEXT
         )
     ''')
+    
+    # Проверяем наличие колонки is_split и добавляем если нет
+    cursor.execute("PRAGMA table_info(cars)")
+    columns = [column[1] for column in cursor.fetchall()]
+    
+    if 'is_split' not in columns:
+        cursor.execute('ALTER TABLE cars ADD COLUMN is_split INTEGER DEFAULT 0')
     
     conn.commit()
     conn.close()
@@ -57,6 +63,24 @@ def get_today_salary(user_id):
         SELECT SUM(salary_25_percent) FROM cars 
         WHERE user_id = ? AND DATE(date) = ?
     ''', (user_id, today))
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    return result[0] if result[0] else 0
+
+def get_yesterday_salary(user_id):
+    """Получение зарплаты за вчера"""
+    from datetime import timedelta
+    yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT SUM(salary_25_percent) FROM cars 
+        WHERE user_id = ? AND DATE(date) = ?
+    ''', (user_id, yesterday))
     
     result = cursor.fetchone()
     conn.close()
