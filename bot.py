@@ -6,6 +6,8 @@ from datetime import datetime
 from openpyxl import Workbook
 from database import add_car_record, get_today_salary, get_yesterday_salary, get_period_salary, get_all_cars_for_export, clear_today_records, clear_period_records, clear_all_records, delete_last_records, get_split_mode, log_user_activity, get_users_stats
 import tempfile
+import zipfile
+import requests
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -359,12 +361,37 @@ async def export_data(query, user_id, start_day, end_day):
     
     wb.save(temp_filename)
     
-    # Отправляем Excel файл
+    # Создаем ZIP архив с фото
+    with tempfile.NamedTemporaryFile(mode='wb', suffix='.zip', delete=False) as tmp_zip:
+        zip_filename = tmp_zip.name
+    
     try:
-        with open(temp_filename, 'rb') as file:
+        with zipfile.ZipFile(zip_filename, 'w') as zipf:
+            # Сначала добавляем Excel файл
+            zipf.write(temp_filename, "table.xlsx")
+            
+            # Добавляем фото
+            for idx, car in enumerate(cars_data):
+                if car['photo_file_id']:
+                    try:
+                        # Получаем файл из Telegram
+                        file = await query.bot.get_file(car['photo_file_id'])
+                        photo_url = file.file_path
+                        
+                        # Скачиваем фото
+                        response = requests.get(f"https://api.telegram.org/file/bot{TOKEN}/{photo_url}")
+                        if response.status_code == 200:
+                            # Добавляем фото в ZIP
+                            photo_filename = f"{idx+1}_{car['date']}.jpg"
+                            zipf.writestr(photo_filename, response.content)
+                    except Exception as e:
+                        print(f"Ошибка при скачивании фото {idx+1}: {e}")
+        
+        # Отправляем ZIP файл
+        with open(zip_filename, 'rb') as file:
             await query.message.reply_document(
                 document=file,
-                caption=f"Таблица {start_day}-{end_day}\n\nСумма чека: {total_check:.2f} ₽\nДоля 25%: {total_salary:.2f} ₽"
+                caption=f"Отчет {start_day}-{end_day}\n\nСумма чека: {total_check:.2f} ₽\nДоля 25%: {total_salary:.2f} ₽"
             )
     except Exception as e:
         await query.message.reply_text(
@@ -375,26 +402,8 @@ async def export_data(query, user_id, start_day, end_day):
     finally:
         if os.path.exists(temp_filename):
             os.remove(temp_filename)
-    
-    # Отправляем фото по отдельности
-    await query.message.reply_text(
-        f"<b>Фото за период {start_day}-{end_day}</b>",
-        parse_mode='HTML'
-    )
-    
-    for car in cars_data:
-        if car['photo_file_id']:
-            try:
-                await query.message.reply_photo(
-                    photo=car['photo_file_id'],
-                    caption=f"{car['check_amount']} ₽ | {car['salary_25_percent']} ₽ | {car['date']}"
-                )
-            except Exception as e:
-                await query.message.reply_text(
-                    f"<b>Ошибка фото</b>\n\n"
-                    f"{e}",
-                    parse_mode='HTML'
-                )
+        if os.path.exists(zip_filename):
+            os.remove(zip_filename)
     
     await show_main_menu(query)
 
