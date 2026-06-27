@@ -4,7 +4,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFi
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes, ConversationHandler
 from datetime import datetime
 from openpyxl import Workbook
-from database import add_car_record, get_today_salary, get_yesterday_salary, get_period_salary, get_all_cars_for_export, clear_today_records, clear_period_records, clear_all_records, delete_last_records, get_split_mode
+from database import add_car_record, get_today_salary, get_yesterday_salary, get_period_salary, get_all_cars_for_export, clear_today_records, clear_period_records, clear_all_records, delete_last_records, get_split_mode, log_user_activity, get_users_stats
 import tempfile
 import zipfile
 import requests
@@ -33,22 +33,20 @@ async def show_main_menu(update):
     split_indicator = "🟢" if is_split else "🔴"
     
     keyboard = [
-        [
-            InlineKeyboardButton("▪ Сегодня", callback_data='today_salary'),
-            InlineKeyboardButton("▪ Вчера", callback_data='yesterday_salary')
-        ],
+        [InlineKeyboardButton(f"{split_indicator} Запись на 2-х", callback_data='toggle_split')],
         [
             InlineKeyboardButton("▪ ЗП 1-15", callback_data='salary_1_15'),
             InlineKeyboardButton("▪ ЗП 16-30", callback_data='salary_16_30')
         ],
         [
+            InlineKeyboardButton("▪ Вчера", callback_data='yesterday_salary'),
+            InlineKeyboardButton("▪ Сегодня", callback_data='today_salary')
+        ],
+        [
             InlineKeyboardButton("▪ Отчет 1-15", callback_data='export_1_15'),
             InlineKeyboardButton("▪ Отчет 16-30", callback_data='export_16_30')
         ],
-        [
-            InlineKeyboardButton(f"{split_indicator} НА 2-их", callback_data='toggle_split'),
-            InlineKeyboardButton("▫️Очистить▫️", callback_data='clear_menu')
-        ]
+        [InlineKeyboardButton("▫️Очистить▫️", callback_data='clear_menu')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -71,6 +69,9 @@ async def show_main_menu(update):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     
+    # Логируем активность пользователя
+    log_user_activity(user.id, user.first_name, user.username)
+    
     await update.message.reply_text(
         f"<b>13</b>\n\n"
         f"Привет, {user.first_name}\n\n"
@@ -83,6 +84,29 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
     
     await show_main_menu(update)
+
+# Скрытая команда для просмотра статистики пользователей
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    
+    # Только для админа
+    ADMIN_ID = 5288573603
+    
+    if user.id != ADMIN_ID:
+        return
+    
+    users = get_users_stats()
+    
+    if not users:
+        await update.message.reply_text("Нет пользователей")
+        return
+    
+    message = "<b>Статистика пользователей</b>\n\n"
+    for u in users:
+        username = f"@{u['username']}" if u['username'] else u['first_name']
+        message += f"{username}\nЗаписей: {u['records_count']}\nПоследняя активность: {u['last_activity']}\n\n"
+    
+    await update.message.reply_text(message, parse_mode='HTML')
 
 # Обработчик кнопок
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -157,7 +181,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             ],
             [
                 InlineKeyboardButton("▪ Очистить все", callback_data='clear_all'),
-                InlineKeyboardButton("▪ Назад", callback_data='back')
+                InlineKeyboardButton("🔴 Назад", callback_data='back')
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -387,6 +411,7 @@ def main() -> None:
     application = Application.builder().token(TOKEN).build()
     
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("stats", stats))
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
