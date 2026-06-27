@@ -149,7 +149,7 @@ def get_period_salary(user_id, start_day, end_day, month=None, year=None):
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT SUM(salary_25_percent), photo_file_id, check_amount, date, description
+        SELECT photo_file_id, check_amount, salary_25_percent, date, description
         FROM cars 
         WHERE user_id = ? 
         AND strftime('%Y', date) = ?
@@ -160,18 +160,17 @@ def get_period_salary(user_id, start_day, end_day, month=None, year=None):
     result = cursor.fetchall()
     conn.close()
     
-    total_salary = sum(row[0] for row in result if row[0]) if result else 0
     cars_data = []
-    
     for row in result:
-        if row[0]:
-            cars_data.append({
-                'salary': row[0],
-                'photo_file_id': row[1],
-                'check_amount': row[2],
-                'date': row[3],
-                'description': row[4]
-            })
+        cars_data.append({
+            'photo_file_id': row[0],
+            'check_amount': row[1],
+            'salary_25_percent': row[2],
+            'date': row[3],
+            'description': row[4]
+        })
+    
+    total_salary = sum(car['salary_25_percent'] for car in cars_data)
     
     return total_salary, cars_data
 
