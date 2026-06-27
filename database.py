@@ -29,8 +29,59 @@ def init_database():
     if 'is_split' not in columns:
         cursor.execute('ALTER TABLE cars ADD COLUMN is_split INTEGER DEFAULT 0')
     
+    # Создаем таблицу пользователей для статистики
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            first_name TEXT,
+            username TEXT,
+            last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            records_count INTEGER DEFAULT 0
+        )
+    ''')
+    
     conn.commit()
     conn.close()
+
+def log_user_activity(user_id, first_name, username):
+    """Логирование активности пользователя"""
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        INSERT OR REPLACE INTO users (user_id, first_name, username, last_activity, records_count)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP,
+            COALESCE((SELECT records_count FROM users WHERE user_id = ?), 0) + 1)
+    ''', (user_id, first_name, username, user_id))
+    
+    conn.commit()
+    conn.close()
+
+def get_users_stats():
+    """Получение статистики пользователей"""
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT user_id, first_name, username, last_activity, records_count
+        FROM users
+        ORDER BY last_activity DESC
+    ''')
+    
+    result = cursor.fetchall()
+    conn.close()
+    
+    users = []
+    for row in result:
+        users.append({
+            'user_id': row[0],
+            'first_name': row[1],
+            'username': row[2],
+            'last_activity': row[3],
+            'records_count': row[4]
+        })
+    
+    return users
 
 def add_car_record(user_id, photo_file_id=None, photo_path=None, check_amount=0, description="", is_split=0):
     """Добавление записи о машине"""
